@@ -21,7 +21,7 @@ jobs:
           password: ${{ secrets.VPS_PASSWORD }}
           port: ${{ secrets.VPS_PORT || 22 }}
           # Copy only the necessary code files and directories (excludes local database, .git, .env, and uploads)
-          source: "Dockerfile,requirements.txt,main.py,config.py,db.py,migrations.py,auth/**,forms/**,models/**,routers/**,schemas/**,services/**"
+          source: "Dockerfile,requirements.txt,main.py,config.py,db.py,migrations.py,auth/**,forms/**,models/**,routers/**,schemas/**,services/**,uploads/**"
           target: "/app/fore-form"
           strip_components: 0
 
