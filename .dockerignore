@@ -1,0 +1,39 @@
+# Ignore development and local environment files
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.vscode/
+.idea/
+.DS_Store
+
+# Ignore git history and config
+.git/
+.github/
+.gitignore
+
+# Ignore local environment variables and secrets
+.env
+.env.*
+.env.local
+.env.development
+.env.production
+
+# Ignore local database and journal files
+*.db
+*.db-journal
+
+# Ignore dynamic runtime uploads and temp files
+uploads/
+tmp/
+temp/
+
+# Ignore Docker files themselves
+Dockerfile
+.dockerignore
+
+# Ignore docs and non-code files
+README.md
