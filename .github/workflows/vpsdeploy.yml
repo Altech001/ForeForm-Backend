@@ -5,61 +5,32 @@ on:
     branches: ["main"]
   workflow_dispatch:
 
-env:
-  # The Docker Hub repository name (user/repo)
-  IMAGE_NAME: ${{ secrets.DOCKER_USERNAME }}/foreform-backend
-
-  # ── Kubernetes / K3s Configurations (Method A) ──
-  K8S_DEPLOYMENT: foreform-backend
-  K8S_CONTAINER: foreform-backend
-  K8S_NAMESPACE: default
-
-  # ── Docker Compose Configurations (Method B) ────
-  COMPOSE_PROJECT_DIR: /app/fore-form/backend
-  COMPOSE_SERVICE_NAME: backend
-
 jobs:
-  build-and-push:
+  deploy-to-vps:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          # We explicitly push two tags:
-          # 1. The commit SHA (for precise versioning)
-          # 2. 'latest' (for convenience)
-          tags: |
-            ${{ env.IMAGE_NAME }}:${{ github.sha }}
-            ${{ env.IMAGE_NAME }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          target: runner
-
-  deploy-to-vps:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    steps:
-      - name: Deploy to VPS via SSH
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Copy backend files to VPS via SCP
+        uses: appleboy/scp-action@v0.1.7
         with:
           # Use the public IP address of your Linode VPS (e.g. 172.104.x.y)
           host: ${{ secrets.VPS_IP }}
           username: ${{ secrets.VPS_USER }}
           # Supports both SSH private keys and password authentication
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          source: "backend/**"
+          target: "/app/fore-form"
+          strip_components: 1
+
+      - name: Build and Run on VPS via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_IP }}
+          username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           password: ${{ secrets.VPS_PASSWORD }}
           port: ${{ secrets.VPS_PORT || 22 }}
@@ -72,30 +43,28 @@ jobs:
             # ─────────────────────────────────────────────────────────────────────────────
 
             echo "🚀 Starting Deployment on Linode VPS..."
+            cd /app/fore-form
 
-            # =============================================================================
-            # METHOD A: Deploying via Kubernetes (K3s) [Default]
-            # If your Linode VPS runs K3s, uncomment the lines below to deploy:
-            # =============================================================================
-            
-            # export KUBECONFIG=~/.kube/config
-            
-            # # 1. Update the K8s Deployment with the new image SHA
-            # kubectl set image deployment/${{ env.K8S_DEPLOYMENT }} \
-            #   ${{ env.K8S_CONTAINER }}=${{ env.IMAGE_NAME }}:${{ github.sha }} \
-            #   -n ${{ env.K8S_NAMESPACE }}
-            
-            # # 2. Monitor rollout status
-            # kubectl rollout status deployment/${{ env.K8S_DEPLOYMENT }} \
-            #   -n ${{ env.K8S_NAMESPACE }} --timeout=120s
+            # Ensure .env file exists so Docker run doesn't fail
+            touch .env
 
+            # 1. Build the Docker image locally on the VPS (bypasses Docker Hub!)
+            echo "📦 Building Docker image..."
+            docker build -t foreform-backend:latest .
 
-            # =============================================================================
-            # METHOD B: Deploying via Docker Compose
-            # If your Linode VPS runs standard Docker Compose, uncomment the lines below:
-            # =============================================================================
-            
-            # cd ${{ env.COMPOSE_PROJECT_DIR }}
-            # docker compose pull ${{ env.COMPOSE_SERVICE_NAME }}
-            # docker compose up -d ${{ env.COMPOSE_SERVICE_NAME }}
-            # docker system prune -f
+            # 2. Run the Docker container
+            echo "🔄 Restarting container..."
+            docker stop foreform-backend || true
+            docker rm foreform-backend || true
+
+            docker run -d \
+              --name foreform-backend \
+              --restart always \
+              -p 8000:8000 \
+              -v /app/fore-form/uploads:/app/uploads \
+              --env-file .env \
+              foreform-backend:latest
+
+            # 3. Clean up unused images to save disk space
+            docker image prune -f
+            echo "✅ Deployment complete!"
