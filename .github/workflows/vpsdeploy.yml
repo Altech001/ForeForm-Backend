@@ -61,6 +61,7 @@ jobs:
               --restart always \
               -p 8000:8000 \
               -v /app/fore-form/uploads:/app/uploads \
+              -v /app/fore-form/.env:/app/.env:ro \
               --env-file .env \
               foreform-backend:latest
 
