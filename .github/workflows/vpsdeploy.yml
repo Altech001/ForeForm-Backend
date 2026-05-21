@@ -22,9 +22,10 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           password: ${{ secrets.VPS_PASSWORD }}
           port: ${{ secrets.VPS_PORT || 22 }}
-          source: "backend/**"
+          # Copy only the necessary code files and directories (excludes local database, .git, .env, and uploads)
+          source: "Dockerfile,requirements.txt,main.py,config.py,db.py,migrations.py,auth/**,forms/**,models/**,routers/**,schemas/**,services/**"
           target: "/app/fore-form"
-          strip_components: 1
+          strip_components: 0
 
       - name: Build and Run on VPS via SSH
         uses: appleboy/ssh-action@v1.0.3
