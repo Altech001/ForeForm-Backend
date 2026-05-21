@@ -1,3 +1,5 @@
+#type: ignore
+
 from pydantic import BaseModel
 from typing import Optional, List, Any
 from datetime import datetime
@@ -7,8 +9,14 @@ from datetime import datetime
 
 class GoogleOAuthCallback(BaseModel):
     code: str
-    provider: str  # "google_drive" | "google_sheets"
+    provider: str  # "google_drive" | "google_sheets" | "gmail" | "youtube"
     redirect_uri: Optional[str] = None
+
+
+class OAuthCallback(BaseModel):
+    code: str
+    redirect_uri: Optional[str] = None
+    code_verifier: Optional[str] = None
 
 
 class IntegrationStatus(BaseModel):
@@ -16,6 +24,9 @@ class IntegrationStatus(BaseModel):
     is_connected: bool
     connected_email: Optional[str] = None
     connected_at: Optional[datetime] = None
+    scopes: Optional[str] = None
+    setup_required: bool = False
+    message: Optional[str] = None
 
     class Config:
         from_attributes = True

@@ -8,8 +8,8 @@ from schemas.user import UserRegister, UserLogin, Token, UserOut, GoogleLoginPar
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 
-GOOGLE_CLIENT_ID = "607016949081-pu5rdrdaobgtvgiq8q6omf05thl3avpa.apps.googleusercontent.com"
 from auth.jwt import hash_password, verify_password, create_access_token, get_current_user
+from config import settings
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -51,7 +51,7 @@ def login(data: UserLogin, db: Session = Depends(get_db)):
 def google_login(data: GoogleLoginParams, db: Session = Depends(get_db)):
     """Authenticate via Google and return a JWT access token."""
     try:
-        idinfo = id_token.verify_oauth2_token(data.token, google_requests.Request(), GOOGLE_CLIENT_ID)
+        idinfo = id_token.verify_oauth2_token(data.token, google_requests.Request(), settings.GOOGLE_OAUTH_CLIENT_ID)
         email = normalize_email(idinfo.get('email', ''))
         name = idinfo.get('name', 'Google User')
         if not email:

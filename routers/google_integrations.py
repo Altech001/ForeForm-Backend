@@ -45,9 +45,13 @@ GOOGLE_CLIENT_ID = settings.GOOGLE_OAUTH_CLIENT_ID
 GOOGLE_CLIENT_SECRET = settings.GOOGLE_OAUTH_CLIENT_SECRET
 GOOGLE_REDIRECT_URI = settings.GOOGLE_OAUTH_REDIRECT_URI
 
+GOOGLE_IDENTITY_SCOPES = "openid email profile"
+
 SCOPES_MAP = {
-    "google_drive": "https://www.googleapis.com/auth/drive.file",
-    "google_sheets": "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file",
+    "google_drive": f"{GOOGLE_IDENTITY_SCOPES} https://www.googleapis.com/auth/drive.file",
+    "google_sheets": f"{GOOGLE_IDENTITY_SCOPES} https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file",
+    "gmail": f"{GOOGLE_IDENTITY_SCOPES} https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.readonly",
+    "youtube": f"{GOOGLE_IDENTITY_SCOPES} https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/youtube.upload",
 }
 
 
@@ -55,13 +59,15 @@ SCOPES_MAP = {
 
 @router.get("/auth-url")
 def get_auth_url(
-    provider: str = Query(..., description="google_drive or google_sheets"),
+    provider: str = Query(..., description="google_drive, google_sheets, gmail, or youtube"),
     redirect_uri: str = Query(None, description="Frontend redirect URI"),
     current_user: User = Depends(get_current_user),
 ):
     """Return the Google OAuth2 consent URL for the given provider."""
     if provider not in SCOPES_MAP:
         raise HTTPException(400, detail=f"Unknown provider: {provider}")
+    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+        raise HTTPException(503, detail="Google OAuth is not configured on the server.")
 
     scopes = SCOPES_MAP[provider]
     params = urlencode({
@@ -86,6 +92,11 @@ def oauth_callback(
     db: Session = Depends(get_db),
 ):
     """Exchange the authorization code for tokens and store them."""
+    if data.provider not in SCOPES_MAP:
+        raise HTTPException(400, detail=f"Unknown provider: {data.provider}")
+    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+        raise HTTPException(503, detail="Google OAuth is not configured on the server.")
+
     token_resp = http_requests.post(
         "https://oauth2.googleapis.com/token",
         data={
@@ -176,6 +187,7 @@ def get_integration_status(
                 is_connected=True,
                 connected_email=integ.connected_email,
                 connected_at=integ.created_date,
+                scopes=integ.scopes,
             )
         )
 
@@ -183,7 +195,19 @@ def get_integration_status(
     connected_providers = {r.provider for r in results}
     for prov in SCOPES_MAP:
         if prov not in connected_providers:
-            results.append(IntegrationStatus(provider=prov, is_connected=False))
+            results.append(
+                IntegrationStatus(
+                    provider=prov,
+                    is_connected=False,
+                    scopes=SCOPES_MAP[prov],
+                    setup_required=not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET,
+                    message=(
+                        "Google OAuth is not configured on the server."
+                        if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET
+                        else None
+                    ),
+                )
+            )
 
     return results
 

@@ -23,6 +23,7 @@ from routers.sect_form import router as sections_router
 from routers.foreform_agents import router as agent_router
 from routers.agentic_fill import router as agentic_fill_router
 from routers.google_integrations import router as google_integrations_router
+from routers.twitter_integrations import router as twitter_integrations_router
 from routers.admin import router as admin_router
 from routers.google_sheet_upload import router as sheets_router
 from routers.drive_explorer import router as drive_explorer_router
@@ -43,24 +44,14 @@ app = FastAPI(
     servers=[{"url": "https://api.pitbox.fun", "description": "Production"}],
 )
 
-# # ── CORS ─────────────────────────────────────────────────────
-# app.add_middleware(
-#     CORSMiddleware,
-#     allow_origins=list(dict.fromkeys([
-#         settings.FRONTEND_ORIGIN,
-#         "http://localhost:5173",
-#         "http://localhost:3000",
-#         "http://127.0.0.1:5173",
-#         "https://api.pitbox.fun",
-#         "https://fore-form.vercel.app",
-#         "https://form.pitbox.fun",
-#         "https://pitbox.fun",
-#         "https://api.pitbox.fun",
-#     ])),
-#     allow_credentials=True,
-#     allow_methods=["*"],
-#     allow_headers=["*"],
-# )
+# ── CORS ─────────────────────────────────────────────────────
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins(),
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # ── Register routers ────────────────────────────────────────
 app.include_router(auth_router)
@@ -75,6 +66,7 @@ app.include_router(sections_router)
 app.include_router(agent_router)
 app.include_router(agentic_fill_router)
 app.include_router(google_integrations_router)
+app.include_router(twitter_integrations_router)
 app.include_router(admin_router)
 app.include_router(sheets_router)
 app.include_router(drive_explorer_router)

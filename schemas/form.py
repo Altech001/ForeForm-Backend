@@ -96,6 +96,9 @@ class Branding(BaseModel):
     cover_image_url: Optional[str] = None
     logo_position: Optional[LogoPosition] = LogoPosition.left
     font: Optional[str] = "inter"
+    schedule_date: Optional[str] = None
+    schedule_start: Optional[str] = None
+    schedule_end: Optional[str] = None
 
 
 class QuizSettings(BaseModel):

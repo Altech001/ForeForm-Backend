@@ -15,12 +15,10 @@ jobs:
       - name: Copy backend files to VPS via SCP
         uses: appleboy/scp-action@v0.1.7
         with:
-          # Use the public IP address of your Linode VPS (e.g. 172.104.x.y)
           host: ${{ secrets.VPS_IP }}
           username: ${{ secrets.VPS_USER }}
           password: ${{ secrets.VPS_PASSWORD }}
           port: ${{ secrets.VPS_PORT || 22 }}
-          # Copy only the necessary code files and directories (excludes local database, .git, .env, and uploads)
           source: "Dockerfile,requirements.txt,main.py,config.py,db.py,migrations.py,auth/**,forms/**,models/**,routers/**,schemas/**,services/**,uploads/**"
           target: "/app/fore-form"
           strip_components: 0
@@ -71,25 +69,30 @@ jobs:
           script: |
             echo "🌐 Setting up Nginx reverse proxy..."
 
-            # Install nginx if not present
+            # Install nginx + ssl-cert if not present
             if ! command -v nginx &> /dev/null; then
-              apt-get update && apt-get install -y nginx
+              apt-get update && apt-get install -y nginx ssl-cert
             fi
 
-            # Write the server block for api.pitbox.fun
-            cat > /etc/nginx/sites-available/api.pitbox.fun << 'NGINX_CONF'
+            # ── Only write config if SSL is not already configured ──
+            # This prevents overwriting the working SSL config on every deploy
+            if ! grep -q "listen 443 ssl" /etc/nginx/sites-available/api.pitbox.fun 2>/dev/null; then
+              echo "📝 Writing Nginx config with SSL..."
+              cat > /etc/nginx/sites-available/api.pitbox.fun << 'NGINX_CONF'
             server {
                 listen 80;
+                listen 443 ssl;
                 server_name api.pitbox.fun;
 
+                ssl_certificate /etc/ssl/certs/ssl-cert-snakeoil.pem;
+                ssl_certificate_key /etc/ssl/private/ssl-cert-snakeoil.key;
+
                 location / {
-                    # ── CORS headers ─────────────────────────────────
                     set $cors_origin "";
-                    if ($http_origin ~* "^https://(form\.pitbox\.fun|fore-form\.vercel\.app|pitbox\.fun)$") {
+                    if ($http_origin ~* "^(https://(form\.pitbox\.fun|fore-form\.vercel\.app|pitbox\.fun)|http://(localhost|127\.0\.0\.1):(5173|3000))$") {
                         set $cors_origin $http_origin;
                     }
 
-                    # Handle preflight OPTIONS requests directly
                     if ($request_method = 'OPTIONS') {
                         add_header 'Access-Control-Allow-Origin' $cors_origin always;
                         add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, PATCH, DELETE, OPTIONS' always;
@@ -101,26 +104,29 @@ jobs:
                         return 204;
                     }
 
-                    # Add CORS headers to all proxied responses
                     add_header 'Access-Control-Allow-Origin' $cors_origin always;
                     add_header 'Access-Control-Allow-Credentials' 'true' always;
                     add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, PATCH, DELETE, OPTIONS' always;
                     add_header 'Access-Control-Allow-Headers' 'Authorization, Content-Type, Accept, Origin, X-Requested-With' always;
 
-                    # ── Proxy settings ───────────────────────────────
                     proxy_pass http://127.0.0.1:8000;
                     proxy_set_header Host $host;
                     proxy_set_header X-Real-IP $remote_addr;
                     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
                     proxy_set_header X-Forwarded-Proto https;
-
-                    # WebSocket support
                     proxy_http_version 1.1;
                     proxy_set_header Upgrade $http_upgrade;
                     proxy_set_header Connection "upgrade";
                 }
             }
             NGINX_CONF
+              echo "✅ Nginx config written"
+            else
+              echo "✅ Nginx SSL config already exists — skipping overwrite"
+            fi
+
+            # Keep existing SSL configs, but make sure local dev origins can call the VPS API.
+            sed -i 's#\^https://(form\\.pitbox\\.fun|fore-form\\.vercel\\.app|pitbox\\.fun)\$#^(https://(form\\.pitbox\\.fun|fore-form\\.vercel\\.app|pitbox\\.fun)|http://(localhost|127\\.0\\.0\\.1):(5173|3000))$#g' /etc/nginx/sites-available/api.pitbox.fun
 
             # Enable the site (idempotent)
             ln -sf /etc/nginx/sites-available/api.pitbox.fun /etc/nginx/sites-enabled/
@@ -128,15 +134,15 @@ jobs:
             # Remove default site if it exists (avoids conflicts)
             rm -f /etc/nginx/sites-enabled/default
 
-            # Validate and reload
+            # Always reload to pick up container restart
             nginx -t && systemctl reload nginx
             echo "✅ Nginx configured for api.pitbox.fun"
 
             # ── Firewall ──────────────────────────────────────────
             echo "🔒 Configuring firewall..."
-            ufw allow 22/tcp   # SSH
-            ufw allow 80/tcp   # HTTP (Cloudflare → Nginx)
-            ufw allow 443/tcp  # HTTPS (Cloudflare)
-            ufw deny 8000      # Block direct access to Docker port
+            ufw allow 22/tcp
+            ufw allow 80/tcp
+            ufw allow 443/tcp
+            ufw deny 8000
             ufw --force enable
             echo "✅ Firewall configured!"
