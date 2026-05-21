@@ -43,24 +43,24 @@ app = FastAPI(
     servers=[{"url": "https://api.pitbox.fun", "description": "Production"}],
 )
 
-# ── CORS ─────────────────────────────────────────────────────
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=list(dict.fromkeys([
-        settings.FRONTEND_ORIGIN,
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:5173",
-        "https://api.pitbox.fun",
-        "https://fore-form.vercel.app",
-        "https://form.pitbox.fun",
-        "https://pitbox.fun",
-        "https://api.pitbox.fun",
-    ])),
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# # ── CORS ─────────────────────────────────────────────────────
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=list(dict.fromkeys([
+#         settings.FRONTEND_ORIGIN,
+#         "http://localhost:5173",
+#         "http://localhost:3000",
+#         "http://127.0.0.1:5173",
+#         "https://api.pitbox.fun",
+#         "https://fore-form.vercel.app",
+#         "https://form.pitbox.fun",
+#         "https://pitbox.fun",
+#         "https://api.pitbox.fun",
+#     ])),
+#     allow_credentials=True,
+#     allow_methods=["*"],
+#     allow_headers=["*"],
+# )
 
 # ── Register routers ────────────────────────────────────────
 app.include_router(auth_router)
