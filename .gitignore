@@ -1,0 +1,11 @@
+.vercel
+.env
+.env.*
+
+#python 
+formflow.db
+.DS_Store
+__pycache__
+formflow.db-journal
+.venv
+venv
