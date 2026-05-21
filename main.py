@@ -51,7 +51,7 @@ app.add_middleware(
         "http://localhost:5173",
         "http://localhost:3000",
         "http://127.0.0.1:5173",
-        "https://foreform.vercel.app",
+        "https://api.pitbox.fun",
         "https://fore-form.vercel.app",
         "https://form.pitbox.fun",
         "https://pitbox.fun",
