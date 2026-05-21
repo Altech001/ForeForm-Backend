@@ -40,6 +40,7 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    servers=[{"url": "https://api.pitbox.fun", "description": "Production"}],
 )
 
 # ── CORS ─────────────────────────────────────────────────────
@@ -54,6 +55,7 @@ app.add_middleware(
         "https://fore-form.vercel.app",
         "https://form.pitbox.fun",
         "https://pitbox.fun",
+        "https://api.pitbox.fun",
     ])),
     allow_credentials=True,
     allow_methods=["*"],
