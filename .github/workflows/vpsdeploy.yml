@@ -88,6 +88,24 @@ jobs:
                 ssl_certificate_key /etc/ssl/private/ssl-cert-snakeoil.key;
 
                 location / {
+                    set $cors_origin "";
+                    if ($http_origin ~* "^(https://(form\.pitbox\.fun|fore-form\.vercel\.app|pitbox\.fun)|http://(localhost|127\.0\.0\.1):(5173|3000))$") {
+                        set $cors_origin $http_origin;
+                    }
+
+                    # CORS preflight is handled here. Normal responses keep using FastAPI CORS.
+                    if ($request_method = 'OPTIONS') {
+                        add_header 'Access-Control-Allow-Origin' $cors_origin always;
+                        add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, PATCH, DELETE, OPTIONS' always;
+                        add_header 'Access-Control-Allow-Headers' $http_access_control_request_headers always;
+                        add_header 'Access-Control-Allow-Credentials' 'true' always;
+                        add_header 'Access-Control-Max-Age' 86400 always;
+                        add_header 'Vary' 'Origin, Access-Control-Request-Method, Access-Control-Request-Headers' always;
+                        add_header 'Content-Length' 0;
+                        add_header 'Content-Type' 'text/plain';
+                        return 204;
+                    }
+
                     proxy_pass http://127.0.0.1:8000;
                     proxy_set_header Host $host;
                     proxy_set_header X-Real-IP $remote_addr;
@@ -104,9 +122,9 @@ jobs:
               echo "✅ Nginx SSL config already exists — skipping overwrite"
             fi
 
-            # FastAPI owns CORS. Remove any old Nginx CORS handling so browsers
-            # do not receive duplicate Access-Control-Allow-Origin headers.
-            perl -0pi -e 's/\n\s*set \$cors_origin "";\n\s*if \(\$http_origin ~\* "[^"]+"\) \{\n\s*set \$cors_origin \$http_origin;\n\s*\}\n//g; s/\n\s*if \(\$request_method = '\''OPTIONS'\''\) \{\n(?:\s*add_header '\''Access-Control-[^'\'']+'\'' [^;]+;\n|\s*add_header '\''Content-[^'\'']+'\'' [^;]+;\n|\s*return 204;\n)*\s*\}\n//g; s/\n\s*add_header '\''Access-Control-[^'\'']+'\'' [^;]+;\n//g' /etc/nginx/sites-available/api.pitbox.fun
+            # FastAPI owns normal-response CORS. Nginx only answers OPTIONS preflight.
+            perl -0pi -e 's/\n\s*set \$cors_origin "";\n\s*if \(\$http_origin ~\* "[^"]+"\) \{\n\s*set \$cors_origin \$http_origin;\n\s*\}\n//g; s/\n\s*# CORS preflight[^\n]*\n//g; s/\n\s*if \(\$request_method = '\''OPTIONS'\''\) \{\n(?:\s*add_header '\''Access-Control-[^'\'']+'\'' [^;]+;\n|\s*add_header '\''Content-[^'\'']+'\'' [^;]+;\n|\s*add_header '\''Vary'\'' [^;]+;\n|\s*return 204;\n)*\s*\}\n//g; s/\n\s*add_header '\''Access-Control-[^'\'']+'\'' [^;]+;\n//g' /etc/nginx/sites-available/api.pitbox.fun
+            perl -0pi -e 's@location / \{\n@location / {\n                    set \$cors_origin "";\n                    if (\$http_origin ~* "^(https://(form\\.pitbox\\.fun|fore-form\\.vercel\\.app|pitbox\\.fun)|http://(localhost|127\\.0\\.0\\.1):(5173|3000))\$") {\n                        set \$cors_origin \$http_origin;\n                    }\n\n                    # CORS preflight is handled here. Normal responses keep using FastAPI CORS.\n                    if (\$request_method = '\''OPTIONS'\'') {\n                        add_header '\''Access-Control-Allow-Origin'\'' \$cors_origin always;\n                        add_header '\''Access-Control-Allow-Methods'\'' '\''GET, POST, PUT, PATCH, DELETE, OPTIONS'\'' always;\n                        add_header '\''Access-Control-Allow-Headers'\'' \$http_access_control_request_headers always;\n                        add_header '\''Access-Control-Allow-Credentials'\'' '\''true'\'' always;\n                        add_header '\''Access-Control-Max-Age'\'' 86400 always;\n                        add_header '\''Vary'\'' '\''Origin, Access-Control-Request-Method, Access-Control-Request-Headers'\'' always;\n                        add_header '\''Content-Length'\'' 0;\n                        add_header '\''Content-Type'\'' '\''text/plain'\'';\n                        return 204;\n                    }\n\n@' /etc/nginx/sites-available/api.pitbox.fun
 
             # Enable the site (idempotent)
             ln -sf /etc/nginx/sites-available/api.pitbox.fun /etc/nginx/sites-enabled/
