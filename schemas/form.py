@@ -1,3 +1,4 @@
+#type:ignore
 
 from pydantic import BaseModel
 from typing import Optional, List, Any
@@ -24,6 +25,7 @@ class QuestionType(str, Enum):
     email = "email"
     file_upload = "file_upload"
     rating = "rating"
+    link = "link"
 
 
 class ConditionOperator(str, Enum):
@@ -80,6 +82,8 @@ class Question(BaseModel):
     points: Optional[float] = None
     correct_answer: Optional[str] = None
     condition: Optional[QuestionCondition] = None
+    link_url: Optional[str] = None
+    link_button_text: Optional[str] = None
 
 
 class Branding(BaseModel):

@@ -71,7 +71,18 @@ class Settings:
             "https://fore-form.vercel.app",
             "https://form.pitbox.fun",
             "https://pitbox.fun",
+            "https://5f07-102-209-109-54.ngrok-free.app",
         ]
         return list(dict.fromkeys([*configured, *defaults]))
+
+    def cors_origin_regex(self) -> str:
+        return (
+            r"^https?://("
+            r"localhost|127\.0\.0\.1|"
+            r"192\.168\.\d{1,3}\.\d{1,3}|"
+            r"10\.\d{1,3}\.\d{1,3}\.\d{1,3}|"
+            r"172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}"
+            r")(:\d+)?$"
+        )
 
 settings = Settings()
