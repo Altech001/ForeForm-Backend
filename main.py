@@ -1,6 +1,6 @@
 #type: ignore
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
@@ -43,6 +43,13 @@ app = FastAPI(
     redoc_url="/redoc",
     servers=[{"url": "https://api.pitbox.fun", "description": "Production"}],
 )
+
+@app.middleware("http")
+async def adjust_proto_scheme(request: Request, call_next):
+    forwarded_proto = request.headers.get("x-forwarded-proto")
+    if forwarded_proto:
+        request.scope["scheme"] = forwarded_proto
+    return await call_next(request)
 
 # ── CORS ─────────────────────────────────────────────────────
 app.add_middleware(
